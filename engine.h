@@ -1,5 +1,8 @@
 #pragma once
 #include <string>
+#include <queue>
+#include <vector>
+#include <ctime>
 
 using namespace std;
 
@@ -23,22 +26,55 @@ class Order{
         Order(OrderType orderType, int orderVolume, float pricePerShare = 0, string orderVisiblity = "public");
         static std::string enumToString(OrderType o);
         std::string getOrderType();
+        float getPrice();
+        std::string getOrderVisibility();
+        std::string printOrder() const;
+        std::string getTimestamp();
     private:
         OrderType orderType; // "market" "limit" 
         int orderVolume;
         float pricePerShare;
         string orderVisibility;
         int orderID;
-        int timestamp;        
+        time_t timestamp;
+        std::string timestampString;        
 };
 
 
-class engine{
+class Engine{
     public:
-        engine();
-        void match(Order o);
-        ~engine();
+        Engine(){};
+        Order* match(Order* o);
+        ~Engine();
+        std::string printBook();
     private:
+        struct cmpBuying{
+            bool operator()(Order* l, Order* r) const { 
+                if (l->getPrice() != r->getPrice()){
+                    return l->getPrice() < r->getPrice();
+                }else if (l->getOrderVisibility() != r->getOrderVisibility()){
+                    if (l -> getOrderVisibility() == "hidden")
+                        return true;
+                    return false;
+                }
+                return false;
+            }
+        };
 
+        struct cmpSelling{
+            bool operator()(Order* l, Order* r) const { 
+                if (l->getPrice() != r->getPrice()){
+                    return l->getPrice() > r->getPrice();
+                }else if (l->getOrderVisibility() != r->getOrderVisibility()){
+                    if (l -> getOrderVisibility() == "hidden")
+                        return true;
+                    return false;
+                }
+                return false;
+            }
+        };
+
+        std::priority_queue<Order*, std::vector<Order*>, cmpSelling> sellOrders;
+        std::priority_queue<Order*, std::vector<Order*>, cmpBuying> buyOrders;
 };
 
