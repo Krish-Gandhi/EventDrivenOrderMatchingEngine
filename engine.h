@@ -2,6 +2,7 @@
 #include <string>
 #include <queue>
 #include <vector>
+#include <functional>
 #include <ctime>
 
 using namespace std;
@@ -24,30 +25,66 @@ enum class OrderType {
 class Order{
     public:
         Order(OrderType orderType, int orderVolume, float pricePerShare = 0, string orderVisiblity = "public");
+        Order(const Order& other); // Copy constructor
         static std::string enumToString(OrderType o);
         std::string getOrderType();
         float getPrice();
+        int getOrderVolume();
         std::string getOrderVisibility();
         std::string printOrder() const;
         std::string getTimestamp();
+        OrderType orderType; // "market" "limit"
+        int orderTypeInt;
+        void removeVolume(int volume);
     private:
-        OrderType orderType; // "market" "limit" 
         int orderVolume;
         float pricePerShare;
         string orderVisibility;
         int orderID;
-        time_t timestamp;
         std::string timestampString;        
 };
 
 
+class Summary{
+    public:
+        Summary(Order* o);
+        ~Summary();
+        void add(Order* o);
+        std::string printSummary();
+        void setStatus(std::string s);
+        void setMessage(std::string s);
+        float getBestPrice();
+    private:
+        float mostFavorablePrice;
+        float averagePrice;
+        int volume;
+        std::string status;
+        std::string message;
+        Order* incomingOrder;
+        std::vector<Order*> matchedOrders;
+};
+
 class Engine{
     public:
-        Engine(){};
-        Order* match(Order* o);
+        Engine();
+        Summary* match(Order* o);
         ~Engine();
         std::string printBook();
     private:
+        Summary* matchMarketBuy(Order* order);
+        Summary* matchMarketSell(Order* order);
+        Summary* matchLimitBuy(Order* order);
+        Summary* matchLimitSell(Order* order);
+        Summary* matchStopBuy(Order* order);
+        Summary* matchStopSell(Order* order);
+        Summary* matchStopLimitBuy(Order* order);
+        Summary* matchStopLimitSell(Order* order);
+        Summary* matchFOKBuy(Order* order);
+        Summary* matchFOKSell(Order* order);
+        Summary* matchTrailingStopBuy(Order* order);
+        Summary* matchTrailingStopSell(Order* order);
+        std::vector<std::function<Summary*(Order* order)>> matchingFunctions;
+        float lastSale;
         struct cmpBuying{
             bool operator()(Order* l, Order* r) const { 
                 if (l->getPrice() != r->getPrice()){
@@ -56,6 +93,8 @@ class Engine{
                     if (l -> getOrderVisibility() == "hidden")
                         return true;
                     return false;
+                }else{
+                    return l->getTimestamp() > r->getTimestamp();
                 }
                 return false;
             }
@@ -69,6 +108,8 @@ class Engine{
                     if (l -> getOrderVisibility() == "hidden")
                         return true;
                     return false;
+                }else{
+                    return l->getTimestamp() > r->getTimestamp();
                 }
                 return false;
             }
@@ -76,5 +117,6 @@ class Engine{
 
         std::priority_queue<Order*, std::vector<Order*>, cmpSelling> sellOrders;
         std::priority_queue<Order*, std::vector<Order*>, cmpBuying> buyOrders;
+        std::vector<Order*> pendingOrders;
 };
 
