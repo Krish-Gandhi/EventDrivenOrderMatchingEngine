@@ -380,6 +380,13 @@ Summary* Engine::matchTrailingStopSell(Order* order){return new Summary(order);}
 Summary* Engine::match(Order* o){
     Summary* ret = matchingFunctions[o -> orderTypeInt](o);
     lastSale = ret -> getBestPrice();
+    updateBook(lastSale);
     return ret;
+}
+
+void Engine::updateBook(float lastSale){
+    for(Order* order : pendingOrders){
+        // write updateFunctions logic
+    }
 }
 
