@@ -270,22 +270,116 @@ Summary* Engine::matchMarketSell(Order* order){
 }
 
 Summary* Engine::matchLimitBuy(Order* order){
-    buyOrders.push(order);
-    return new Summary(order);
+    int remVolume = order -> getOrderVolume();
+    Summary* ret = new Summary(order);
+    if (sellOrders.empty()){ 
+        ret -> setStatus("PENDING"); 
+        ret -> setMessage("No sell orders available, so limit order has been added to order book.");
+        buyOrders.push(order);
+        return ret;
+    }
+    while(remVolume > 0 && sellOrders.top() -> getPrice() <= order -> getPrice() && !sellOrders.empty()){
+        Order* workingOrder = sellOrders.top();
+        if (workingOrder -> getOrderVolume() > remVolume){
+            Order* completed = new Order(*workingOrder); 
+            completed -> removeVolume(workingOrder ->getOrderVolume() - remVolume);
+            workingOrder -> removeVolume(remVolume);
+            ret -> add(completed);
+            remVolume = 0;
+            break;
+        }else{ // workingOrder -> getOrderVolume() <= remVolume
+            ret -> add(workingOrder);
+            remVolume -= workingOrder -> getOrderVolume();
+            sellOrders.pop();
+        }
+    }
+    if (remVolume > 0){ 
+        if (remVolume != order -> getOrderVolume())
+            ret -> setStatus("PARTIALLY FILLED"); 
+        else     
+            ret -> setStatus("PENDING"); 
+        ret -> setMessage("Not enough sell orders under limit price available to fully complete this transaction, so limit order has been added to order book.");
+        Order* unmatched = new Order(*order);
+        unmatched -> removeVolume(order -> getOrderVolume() - remVolume);
+        buyOrders.push(unmatched);
+        return ret;
+    }
+    ret -> setStatus("FILLED"); 
+    ret -> setMessage("Complete transaction."); 
+    return ret;
 }
 
 Summary* Engine::matchLimitSell(Order* order){
-    sellOrders.push(order);
-    return new Summary(order);
+    int remVolume = order -> getOrderVolume();
+    Summary* ret = new Summary(order);
+    if (buyOrders.empty()){ 
+        ret -> setStatus("PENDING"); 
+        ret -> setMessage("No buy orders available, so limit order has been added to order book.");
+        sellOrders.push(order);
+        return ret;
+    }
+    while(remVolume > 0 && buyOrders.top() -> getPrice() >= order -> getPrice() && !buyOrders.empty()){
+        Order* workingOrder = buyOrders.top();
+        if (workingOrder -> getOrderVolume() > remVolume){
+            Order* completed = new Order(*workingOrder); 
+            completed -> removeVolume(workingOrder ->getOrderVolume() - remVolume);
+            workingOrder -> removeVolume(remVolume);
+            ret -> add(completed);
+            remVolume = 0;
+            break;
+        }else{ // workingOrder -> getOrderVolume() <= remVolume
+            ret -> add(workingOrder);
+            remVolume -= workingOrder -> getOrderVolume();
+            buyOrders.pop();
+        }
+    }
+    if (remVolume > 0){ 
+        if (remVolume != order -> getOrderVolume())
+            ret -> setStatus("PARTIALLY FILLED"); 
+        else     
+            ret -> setStatus("PENDING"); 
+        ret -> setMessage("Not enough buy orders above limit price available to fully complete this transaction, so limit order has been added to order book.");
+        Order* unmatched = new Order(*order);
+        unmatched -> removeVolume(order -> getOrderVolume() - remVolume);
+        sellOrders.push(unmatched);
+        return ret;
+    }
+    ret -> setStatus("FILLED"); 
+    ret -> setMessage("Complete transaction."); 
+    return ret;
 }
 
-Summary* Engine::matchStopBuy(Order* order){return new Summary(order);}
+Summary* Engine::matchStopBuy(Order* order){
+    Summary* ret = new Summary(order);
+    pendingOrders.push_back(order);
+    ret -> setStatus("PENDING");
+    ret -> setMessage("Order has been added to pending queue.");
+    return ret;
+}
 
-Summary* Engine::matchStopSell(Order* order){return new Summary(order);}
+Summary* Engine::matchStopSell(Order* order){
+    Summary* ret = new Summary(order);
+    pendingOrders.push_back(order);
+    ret -> setStatus("PENDING");
+    ret -> setMessage("Order has been added to pending queue.");
+    return ret;
+}
 
-Summary* Engine::matchStopLimitBuy(Order* order){return new Summary(order);}
+Summary* Engine::matchStopLimitBuy(Order* order){
+    Summary* ret = new Summary(order);
+    pendingOrders.push_back(order);
+    ret -> setStatus("PENDING");
+    ret -> setMessage("Order has been added to pending queue.");
+    return ret;
+}
 
-Summary* Engine::matchStopLimitSell(Order* order){return new Summary(order);}
+Summary* Engine::matchStopLimitSell(Order* order){
+    Summary* ret = new Summary(order);
+    pendingOrders.push_back(order);
+    ret -> setStatus("PENDING");
+    ret -> setMessage("Order has been added to pending queue.");
+    return ret;
+}
 
 Summary* Engine::matchFOKBuy(Order* order){
     int remVolume = order -> getOrderVolume();
@@ -373,9 +467,21 @@ Summary* Engine::matchFOKSell(Order* order){
     return ret;
 }
 
-Summary* Engine::matchTrailingStopBuy(Order* order){return new Summary(order);}
+Summary* Engine::matchTrailingStopBuy(Order* order){
+    Summary* ret = new Summary(order);
+    pendingOrders.push_back(order);
+    ret -> setStatus("PENDING");
+    ret -> setMessage("Order has been added to pending queue.");
+    return ret;
+}
 
-Summary* Engine::matchTrailingStopSell(Order* order){return new Summary(order);}
+Summary* Engine::matchTrailingStopSell(Order* order){
+    Summary* ret = new Summary(order);
+    pendingOrders.push_back(order);
+    ret -> setStatus("PENDING");
+    ret -> setMessage("Order has been added to pending queue.");
+    return ret;
+}
 
 Summary* Engine::match(Order* o){
     Summary* ret = matchingFunctions[o -> orderTypeInt](o);
