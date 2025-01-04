@@ -117,6 +117,7 @@ class Engine{
         void updateBook(float lastSale);
         std::priority_queue<Order*, std::vector<Order*>, cmpSelling> sellOrders;
         std::priority_queue<Order*, std::vector<Order*>, cmpBuying> buyOrders;
-        std::vector<Order*> pendingOrders;
+        std::priority_queue<Order*, std::vector<Order*>, cmpSelling> pendingSellOrders;
+        std::priority_queue<Order*, std::vector<Order*>, cmpBuying> pendingBuyOrders;
 };
 

@@ -351,7 +351,7 @@ Summary* Engine::matchLimitSell(Order* order){
 
 Summary* Engine::matchStopBuy(Order* order){
     Summary* ret = new Summary(order);
-    pendingOrders.push_back(order);
+    pendingBuyOrders.push(order);
     ret -> setStatus("PENDING");
     ret -> setMessage("Order has been added to pending queue.");
     return ret;
@@ -359,7 +359,7 @@ Summary* Engine::matchStopBuy(Order* order){
 
 Summary* Engine::matchStopSell(Order* order){
     Summary* ret = new Summary(order);
-    pendingOrders.push_back(order);
+    pendingSellOrders.push(order);
     ret -> setStatus("PENDING");
     ret -> setMessage("Order has been added to pending queue.");
     return ret;
@@ -367,7 +367,7 @@ Summary* Engine::matchStopSell(Order* order){
 
 Summary* Engine::matchStopLimitBuy(Order* order){
     Summary* ret = new Summary(order);
-    pendingOrders.push_back(order);
+    pendingBuyOrders.push(order);
     ret -> setStatus("PENDING");
     ret -> setMessage("Order has been added to pending queue.");
     return ret;
@@ -375,7 +375,7 @@ Summary* Engine::matchStopLimitBuy(Order* order){
 
 Summary* Engine::matchStopLimitSell(Order* order){
     Summary* ret = new Summary(order);
-    pendingOrders.push_back(order);
+    pendingSellOrders.push(order);
     ret -> setStatus("PENDING");
     ret -> setMessage("Order has been added to pending queue.");
     return ret;
@@ -469,7 +469,7 @@ Summary* Engine::matchFOKSell(Order* order){
 
 Summary* Engine::matchTrailingStopBuy(Order* order){
     Summary* ret = new Summary(order);
-    pendingOrders.push_back(order);
+    pendingBuyOrders.push(order);
     ret -> setStatus("PENDING");
     ret -> setMessage("Order has been added to pending queue.");
     return ret;
@@ -477,7 +477,7 @@ Summary* Engine::matchTrailingStopBuy(Order* order){
 
 Summary* Engine::matchTrailingStopSell(Order* order){
     Summary* ret = new Summary(order);
-    pendingOrders.push_back(order);
+    pendingSellOrders.push(order);
     ret -> setStatus("PENDING");
     ret -> setMessage("Order has been added to pending queue.");
     return ret;
@@ -491,8 +491,8 @@ Summary* Engine::match(Order* o){
 }
 
 void Engine::updateBook(float lastSale){
-    for(Order* order : pendingOrders){
-        // write updateFunctions logic
-    }
+    //pendingBuyOrders
+    //pendingSellOrders
+    //Two pointer 
 }
 
