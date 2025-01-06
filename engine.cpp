@@ -494,5 +494,19 @@ void Engine::updateBook(float lastSale){
     //pendingBuyOrders
     //pendingSellOrders
     //Two pointer 
+    while(!pendingBuyOrders.empty() || !pendingSellOrders.empty()){
+        Order* topBuy = pendingBuyOrders.top();
+        Order* topSell = pendingSellOrders.top();
+
+        if(topBuy != NULL && topSell != NULL){
+             
+        }else if (topBuy){
+            if (topBuy -> getPrice() < 0)
+                break;
+            
+        }else{
+             
+        }
+    }
 }
 
