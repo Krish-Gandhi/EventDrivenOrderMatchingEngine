@@ -17,9 +17,7 @@ enum class OrderType {
     STOP_LIMIT_BUY,
     STOP_LIMIT_SELL,
     FOK_BUY,
-    FOK_SELL,
-    TRAILING_STOP_BUY,
-    TRAILING_STOP_SELL
+    FOK_SELL
 };
 
 class Order{
@@ -85,16 +83,12 @@ class Engine{
         Summary* matchStopLimitSell(Order* order);
         Summary* matchFOKBuy(Order* order);
         Summary* matchFOKSell(Order* order);
-        Summary* matchTrailingStopBuy(Order* order);
-        Summary* matchTrailingStopSell(Order* order);
         std::vector<std::function<Summary*(Order* order)>> matchingFunctions;
         Summary* updateStopBuy(Order* order);
         Summary* updateStopSell(Order* order);
         Summary* updateStopLimitBuy(Order* order);
         Summary* updateStopLimitSell(Order* order);
-        Summary* updateTrailingStopBuy(Order* order, float lastSale);
-        Summary* updateTrailingStopSell(Order* order, float lastSale);
-        std::vector<std::function<Summary*(Order* order, float lastSale)>> updateFunctions;
+        std::vector<std::function<Summary*(Order* order)>> updateFunctions;
         float lastSale;
         struct cmpBuying{
             bool operator()(Order* l, Order* r) const { 

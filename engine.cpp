@@ -50,8 +50,6 @@ std::string Order::enumToString(OrderType o) {
         case OrderType::STOP_LIMIT_SELL: return "STOP_LIMIT_SELL";
         case OrderType::FOK_BUY: return "FOK_BUY";
         case OrderType::FOK_SELL: return "FOK_SELL";
-        case OrderType::TRAILING_STOP_BUY: return "TRAILING_STOP_BUY";
-        case OrderType::TRAILING_STOP_SELL: return "TRAILING_STOP_SELL";
         default: return "Unknown";
     }
 }
@@ -97,7 +95,7 @@ void Order::removeVolume(int volume){
 
 Summary::Summary(Order* o){
     averagePrice = 0;
-    mostFavorablePrice = 0;
+    mostFavorablePrice = -1;
     volume = 0;
     status = "PENDING";
     message = "NO MESSAGE AVIALABLE";
@@ -118,8 +116,8 @@ void Summary::add(Order* o){
     for(int i = 0; i < matchedOrders.size(); ++i){
         cost += matchedOrders[i] -> getPrice() * matchedOrders[i] -> getOrderVolume();
         totVolume += matchedOrders[i] -> getOrderVolume();
+        mostFavorablePrice = matchedOrders[0] -> getPrice();
     }
-    mostFavorablePrice = matchedOrders[0] -> getPrice();
     volume = totVolume;
     averagePrice = cost / totVolume;
 }
@@ -163,9 +161,11 @@ std::string Summary::printSummary(){
         out << "NONE" << endl;
     else{
         for(int i = 0; i < triggeredOrders.size(); ++i){
+            out << "TRIGGERED ORDER " << i+1 << ": "<< endl;
             out << triggeredOrders[i] -> printSummary() << endl;
         }
     }
+    out << "~~~~~~END OF ORDER SUMMARY~~~~~~" << endl;
     out << "======================================================================" << endl;
     return out.str();
 }
@@ -181,30 +181,28 @@ Engine::Engine(){
         [this](Order* order) { return this->matchStopLimitBuy(order); },
         [this](Order* order) { return this->matchStopLimitSell(order); },
         [this](Order* order) { return this->matchFOKBuy(order); },
-        [this](Order* order) { return this->matchFOKSell(order); },
-        [this](Order* order) { return this->matchTrailingStopBuy(order); },
-        [this](Order* order) { return this->matchTrailingStopSell(order); }
+        [this](Order* order) { return this->matchFOKSell(order); }
     };
     updateFunctions = {
-        [this](Order* order, float lastSale = 0) { return this->updateStopBuy(order); },
-        [this](Order* order, float lastSale = 0) { return this->updateStopBuy(order); },
-        [this](Order* order, float lastSale = 0) { return this->updateStopBuy(order); },
-        [this](Order* order, float lastSale = 0) { return this->updateStopBuy(order); },
-        [this](Order* order, float lastSale = 0) { return this->updateStopBuy(order); },
-        [this](Order* order, float lastSale = 0) { return this->updateStopSell(order); },
-        [this](Order* order, float lastSale = 0) { return this->updateStopLimitBuy(order); },
-        [this](Order* order, float lastSale = 0) { return this->updateStopLimitSell(order); },
-        [this](Order* order, float lastSale = 0) { return this->updateStopBuy(order); },
-        [this](Order* order, float lastSale = 0) { return this->updateStopBuy(order); },
-        [this](Order* order, float lastSale) { return this->updateTrailingStopBuy(order, lastSale); },
-        [this](Order* order, float lastSale) { return this->updateTrailingStopSell(order, lastSale); }
+        [this](Order* order) { return this->updateStopBuy(order); },
+        [this](Order* order) { return this->updateStopBuy(order); },
+        [this](Order* order) { return this->updateStopBuy(order); },
+        [this](Order* order) { return this->updateStopBuy(order); },
+        [this](Order* order) { return this->updateStopBuy(order); },
+        [this](Order* order) { return this->updateStopSell(order); },
+        [this](Order* order) { return this->updateStopLimitBuy(order); },
+        [this](Order* order) { return this->updateStopLimitSell(order); },
+        [this](Order* order) { return this->updateStopBuy(order); },
+        [this](Order* order) { return this->updateStopBuy(order); }
     };
 }
 
 std::string Engine::printBook(){
     auto copyPQ = sellOrders;
     std::stringstream ret;
-    ret << "===================" << std::endl << "Sell Orders:" << std::endl;
+    ret << "===================PRINTING ORDER BOOK===================" << std::endl;
+    ret << "Last Sale Price: $" << lastSale << endl;
+    ret << "Sell Orders:" << std::endl;
     if (sellOrders.empty())
         ret << "None" << std::endl;
     while(!copyPQ.empty()){
@@ -219,6 +217,24 @@ std::string Engine::printBook(){
     while(!copy2PQ.empty()){
         ret << copy2PQ.top()->printOrder() << std::endl;
         copy2PQ.pop();
+    }
+
+    auto copy3PQ = pendingSellOrders;
+    ret << "===================" << std::endl << "Pending Sell Orders:" << std::endl;
+    if (pendingSellOrders.empty())
+        ret << "None" << std::endl;
+    while(!copy3PQ.empty()){
+        ret << copy3PQ.top() -> printOrder() << std::endl;
+        copy3PQ.pop();
+    }
+
+    auto copy4PQ = pendingBuyOrders;
+    ret << "===================" << std::endl << "Pending Buy Orders:" << std::endl;
+    if (pendingBuyOrders.empty())
+        ret << "None" << std::endl;
+    while(!copy4PQ.empty()){
+        ret << copy4PQ.top()->printOrder() << std::endl;
+        copy4PQ.pop();
     }
 
     return ret.str();
@@ -501,25 +517,10 @@ Summary* Engine::matchFOKSell(Order* order){
     return ret;
 }
 
-Summary* Engine::matchTrailingStopBuy(Order* order){
-    Summary* ret = new Summary(order);
-    pendingBuyOrders.push(order);
-    ret -> setStatus("PENDING");
-    ret -> setMessage("Order has been added to pending queue.");
-    return ret;
-}
-
-Summary* Engine::matchTrailingStopSell(Order* order){
-    Summary* ret = new Summary(order);
-    pendingSellOrders.push(order);
-    ret -> setStatus("PENDING");
-    ret -> setMessage("Order has been added to pending queue.");
-    return ret;
-}
-
 Summary* Engine::match(Order* o){
     Summary* ret = matchingFunctions[o -> orderTypeInt](o);
-    lastSale = ret -> getBestPrice();
+    if (ret -> getBestPrice() > 0)
+        lastSale = ret -> getBestPrice();
     updateBook(o, lastSale, ret);
     return ret;
 }
@@ -543,40 +544,49 @@ Summary* Engine::updateStopLimitSell(Order* order){
     return matchMarketSell(limitSell);
 }
 
-Summary* Engine::updateTrailingStopBuy(Order* order, float lastSale){
-    return NULL;
-}
-
-Summary* Engine::updateTrailingStopSell(Order* order, float lastSale){
-    return NULL;
-}
-
 void Engine::updateBook(Order* order, float lastSale, Summary* summary){
     while(!pendingBuyOrders.empty() || !pendingSellOrders.empty()){
         if(!pendingBuyOrders.empty() && !pendingSellOrders.empty()){
             Order* topBuy = pendingBuyOrders.top();
             Order* topSell = pendingSellOrders.top();
-            // implement logic if both are possibilities
+            bool activateBuy = topBuy -> getStopPrice() >= lastSale;
+            bool activateSell = topSell -> getStopPrice() <= lastSale;
+            if (activateBuy && activateSell){
+                Order* first = topBuy->getTimestamp() < topSell -> getTimestamp() ? topBuy : topSell;
+                Order* second = first == topBuy ? topSell : topBuy;
+                Summary* updateSummary1 = updateFunctions[first -> orderTypeInt](first);
+                summary -> addTriggered(updateSummary1);
 
-            //
+                Summary* updateSummary2 = updateFunctions[second -> orderTypeInt](second);
+                summary -> addTriggered(updateSummary2);
+
+                pendingSellOrders.pop();
+                pendingBuyOrders.pop();
+            }else if (activateBuy && !activateSell){
+                Summary* updateSummary = updateFunctions[topBuy -> orderTypeInt](topBuy);
+                pendingBuyOrders.pop();
+                summary -> addTriggered(updateSummary);
+            }else if (activateSell && !activateBuy){
+                Summary* updateSummary = updateFunctions[topSell -> orderTypeInt](topSell);
+                pendingSellOrders.pop();
+                summary -> addTriggered(updateSummary);
+            }else{
+                break;
+            }
         }else if (!pendingBuyOrders.empty()){
             Order* topBuy = pendingBuyOrders.top();
             if (topBuy -> getStopPrice() >= lastSale){  
-                Summary* updateSummary = updateFunctions[topBuy -> orderTypeInt](topBuy, lastSale);
-                if (updateSummary != NULL){
-                    pendingBuyOrders.pop();
-                    summary -> addTriggered(updateSummary);
-                }
+                Summary* updateSummary = updateFunctions[topBuy -> orderTypeInt](topBuy);
+                pendingBuyOrders.pop();
+                summary -> addTriggered(updateSummary);
             }else
                 break;
         }else{
             Order* topSell = pendingSellOrders.top();
             if (topSell -> getStopPrice() <= lastSale){  
-                Summary* updateSummary = updateFunctions[topSell -> orderTypeInt](topSell, lastSale);
-                if (updateSummary != NULL){
-                    pendingSellOrders.pop();
-                    summary -> addTriggered(updateSummary);
-                }
+                Summary* updateSummary = updateFunctions[topSell -> orderTypeInt](topSell);
+                pendingSellOrders.pop();
+                summary -> addTriggered(updateSummary);
             }else
                 break;   
         }

@@ -17,6 +17,11 @@ int main(){
     Order* marketBuy6 = new Order(OrderType::LIMIT_SELL, 20, 4);
     Summary* testing = engine.match(marketBuy6);
     //std::cout << testing -> printSummary();
+    //std::cout << engine.printBook() << std::endl;
+
+    Order* marketBuy5 = new Order(OrderType::MARKET_BUY, 10);
+    testing = engine.match(marketBuy5);
+    //std::cout << testing -> printSummary();
     std::cout << engine.printBook() << std::endl;
 
     Order* marketBuy7 = new Order(OrderType::STOP_SELL, 10, 3.22, "public", 3.44);
@@ -24,7 +29,7 @@ int main(){
     std::cout << testing -> printSummary();
     std::cout << engine.printBook() << std::endl;
 
-    Order* marketBuy9 = new Order(OrderType::STOP_SELL, 15, 3.22, "public", 3.44);
+    Order* marketBuy9 = new Order(OrderType::STOP_BUY, 10, 3.22, "public", 3.44);
     testing = engine.match(marketBuy9);
     std::cout << testing -> printSummary();
     std::cout << engine.printBook() << std::endl;
