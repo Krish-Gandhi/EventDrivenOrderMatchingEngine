@@ -24,7 +24,7 @@ enum class OrderType {
 
 class Order{
     public:
-        Order(OrderType orderType, int orderVolume, float pricePerShare = 0, string orderVisiblity = "public");
+        Order(OrderType orderType, int orderVolume, float pricePerShare = 0, string orderVisiblity = "public", float stopPrice = 0);
         Order(const Order& other); // Copy constructor
         static std::string enumToString(OrderType o);
         std::string getOrderType();
@@ -36,11 +36,13 @@ class Order{
         OrderType orderType; // "market" "limit"
         int orderTypeInt;
         void removeVolume(int volume);
+        float getStopPrice();
     private:
         int orderVolume;
+        float stopPrice;
         float pricePerShare;
         string orderVisibility;
-        int orderID;
+        std::string orderID;
         std::string timestampString;        
 };
 
@@ -50,6 +52,7 @@ class Summary{
         Summary(Order* o);
         ~Summary();
         void add(Order* o);
+        void addTriggered(Summary* s);
         std::string printSummary();
         void setStatus(std::string s);
         void setMessage(std::string s);
@@ -62,6 +65,7 @@ class Summary{
         std::string message;
         Order* incomingOrder;
         std::vector<Order*> matchedOrders;
+        std::vector<Summary*> triggeredOrders;
 };
 
 class Engine{
@@ -84,6 +88,13 @@ class Engine{
         Summary* matchTrailingStopBuy(Order* order);
         Summary* matchTrailingStopSell(Order* order);
         std::vector<std::function<Summary*(Order* order)>> matchingFunctions;
+        Summary* updateStopBuy(Order* order);
+        Summary* updateStopSell(Order* order);
+        Summary* updateStopLimitBuy(Order* order);
+        Summary* updateStopLimitSell(Order* order);
+        Summary* updateTrailingStopBuy(Order* order, float lastSale);
+        Summary* updateTrailingStopSell(Order* order, float lastSale);
+        std::vector<std::function<Summary*(Order* order, float lastSale)>> updateFunctions;
         float lastSale;
         struct cmpBuying{
             bool operator()(Order* l, Order* r) const { 
@@ -114,10 +125,11 @@ class Engine{
                 return false;
             }
         };
-        void updateBook(float lastSale);
+        void updateBook(Order* order, float lastSale, Summary* summary);
         std::priority_queue<Order*, std::vector<Order*>, cmpSelling> sellOrders;
         std::priority_queue<Order*, std::vector<Order*>, cmpBuying> buyOrders;
-        std::priority_queue<Order*, std::vector<Order*>, cmpSelling> pendingSellOrders;
-        std::priority_queue<Order*, std::vector<Order*>, cmpBuying> pendingBuyOrders;
+
+        std::priority_queue<Order*, std::vector<Order*>, cmpBuying> pendingSellOrders;
+        std::priority_queue<Order*, std::vector<Order*>, cmpSelling> pendingBuyOrders;
 };
 

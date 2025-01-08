@@ -9,7 +9,7 @@
 #include <functional>
 
 
-Order::Order(OrderType orderType, int orderVolume, float pricePerShare, string orderVisibility) : orderType(orderType), orderVolume(orderVolume), pricePerShare(pricePerShare), orderVisibility(orderVisibility) {
+Order::Order(OrderType orderType, int orderVolume, float pricePerShare, string orderVisibility, float stopPrice) : orderType(orderType), orderVolume(orderVolume), pricePerShare(pricePerShare), orderVisibility(orderVisibility), stopPrice(stopPrice) {
     auto now = std::chrono::system_clock::now();
     std::time_t now_time_t = std::chrono::system_clock::to_time_t(now);
     std::tm* now_tm = std::localtime(&now_time_t);
@@ -21,7 +21,9 @@ Order::Order(OrderType orderType, int orderVolume, float pricePerShare, string o
 
     timestampString = ss.str();
     orderTypeInt = static_cast<int>(orderType);
-    orderID = 0;
+    orderID = timestampString.substr(3, 1) + timestampString.substr(5, 2) + timestampString.substr(8, 2) + timestampString.substr(20, 1) +   
+              timestampString.substr(14, 2) + timestampString.substr(17, 2) + timestampString.substr(23, 3) + timestampString.substr(27, 2) + 
+              timestampString.substr(22, 1) + timestampString.substr(26, 1) + timestampString.substr(21, 1);
 }
 
 // Copy constructor
@@ -33,6 +35,7 @@ Order::Order(const Order& other){
     orderVisibility = other.orderVisibility;
     orderID = other.orderID;
     timestampString = other.timestampString;
+    stopPrice = other.stopPrice;
 }
 
 std::string Order::enumToString(OrderType o) {
@@ -61,6 +64,10 @@ float Order::getPrice(){
     return pricePerShare;
 }
 
+float Order::getStopPrice(){
+    return stopPrice;
+}
+
 int Order::getOrderVolume(){
     return orderVolume;
 }
@@ -80,6 +87,7 @@ std::string Order::printOrder() const{
     if (orderTypeInt > 1) 
         out << "$" << pricePerShare << " | ";
     out << orderVisibility << " | " << timestampString;
+    out << " | Order ID: "<< orderID;
     return out.str();
 }
 
@@ -116,6 +124,10 @@ void Summary::add(Order* o){
     averagePrice = cost / totVolume;
 }
 
+void Summary::addTriggered(Summary* s){
+    triggeredOrders.push_back(s);
+}
+
 void Summary::setStatus(std::string s){
     status = s;
 }
@@ -146,6 +158,14 @@ std::string Summary::printSummary(){
             out << matchedOrders[i] -> printOrder() << endl;
         }
     }
+    out << "TRIGGERED STOP ORDER(s):      " << endl;
+    if (triggeredOrders.empty())
+        out << "NONE" << endl;
+    else{
+        for(int i = 0; i < triggeredOrders.size(); ++i){
+            out << triggeredOrders[i] -> printSummary() << endl;
+        }
+    }
     out << "======================================================================" << endl;
     return out.str();
 }
@@ -164,6 +184,20 @@ Engine::Engine(){
         [this](Order* order) { return this->matchFOKSell(order); },
         [this](Order* order) { return this->matchTrailingStopBuy(order); },
         [this](Order* order) { return this->matchTrailingStopSell(order); }
+    };
+    updateFunctions = {
+        [this](Order* order, float lastSale = 0) { return this->updateStopBuy(order); },
+        [this](Order* order, float lastSale = 0) { return this->updateStopBuy(order); },
+        [this](Order* order, float lastSale = 0) { return this->updateStopBuy(order); },
+        [this](Order* order, float lastSale = 0) { return this->updateStopBuy(order); },
+        [this](Order* order, float lastSale = 0) { return this->updateStopBuy(order); },
+        [this](Order* order, float lastSale = 0) { return this->updateStopSell(order); },
+        [this](Order* order, float lastSale = 0) { return this->updateStopLimitBuy(order); },
+        [this](Order* order, float lastSale = 0) { return this->updateStopLimitSell(order); },
+        [this](Order* order, float lastSale = 0) { return this->updateStopBuy(order); },
+        [this](Order* order, float lastSale = 0) { return this->updateStopBuy(order); },
+        [this](Order* order, float lastSale) { return this->updateTrailingStopBuy(order, lastSale); },
+        [this](Order* order, float lastSale) { return this->updateTrailingStopSell(order, lastSale); }
     };
 }
 
@@ -210,6 +244,12 @@ Summary* Engine::matchMarketBuy(Order* order){
         return ret;
     }
     while(remVolume > 0){
+        if (sellOrders.empty()){ 
+            ret -> setStatus("PARTIALLY FILLED"); 
+            ret -> setMessage("Not enough sell orders available to fully complete this transaction."); 
+            return ret;
+        }
+
         Order* workingOrder = sellOrders.top();
         if (workingOrder -> getOrderVolume() > remVolume){
             Order* completed = new Order(*workingOrder); 
@@ -222,12 +262,6 @@ Summary* Engine::matchMarketBuy(Order* order){
             ret -> add(workingOrder);
             remVolume -= workingOrder -> getOrderVolume();
             sellOrders.pop();
-        }
-
-        if (sellOrders.empty()){ 
-            ret -> setStatus("PARTIALLY FILLED"); 
-            ret -> setMessage("Not enough sell orders available to fully complete this transaction."); 
-            return ret;
         }
     }
     ret -> setStatus("FILLED"); 
@@ -244,6 +278,12 @@ Summary* Engine::matchMarketSell(Order* order){
         return ret;
     }
     while(remVolume > 0){
+        if (buyOrders.empty()){ 
+            ret -> setStatus("PARTIALLY FILLED"); 
+            ret -> setMessage("Not enough buys orders available to fully complete this transaction."); 
+            return ret;
+        }
+
         Order* workingOrder = buyOrders.top();
         if (workingOrder -> getOrderVolume() > remVolume){
             Order* completed = new Order(*workingOrder); 
@@ -256,12 +296,6 @@ Summary* Engine::matchMarketSell(Order* order){
             ret -> add(workingOrder);
             remVolume -= workingOrder -> getOrderVolume();
             buyOrders.pop();
-        }
-
-        if (buyOrders.empty()){ 
-            ret -> setStatus("PARTIALLY FILLED"); 
-            ret -> setMessage("Not enough buys orders available to fully complete this transaction."); 
-            return ret;
         }
     }
     ret -> setStatus("FILLED"); 
@@ -486,26 +520,65 @@ Summary* Engine::matchTrailingStopSell(Order* order){
 Summary* Engine::match(Order* o){
     Summary* ret = matchingFunctions[o -> orderTypeInt](o);
     lastSale = ret -> getBestPrice();
-    updateBook(lastSale);
+    updateBook(o, lastSale, ret);
     return ret;
 }
+Summary* Engine::updateStopBuy(Order* order){
+    Order* marketBuy = new Order(OrderType::MARKET_BUY, order -> getOrderVolume(), 0, order -> getOrderVisibility());
+    return matchMarketBuy(marketBuy);
+}
 
-void Engine::updateBook(float lastSale){
-    //pendingBuyOrders
-    //pendingSellOrders
-    //Two pointer 
+Summary* Engine::updateStopSell(Order* order){
+    Order* marketSell = new Order(OrderType::MARKET_SELL, order -> getOrderVolume(), 0, order -> getOrderVisibility());
+    return matchMarketSell(marketSell);
+}
+
+Summary* Engine::updateStopLimitBuy(Order* order){
+    Order* limitBuy = new Order(OrderType::LIMIT_BUY, order -> getOrderVolume(), order -> getPrice(), order -> getOrderVisibility());
+    return matchMarketBuy(limitBuy);
+}
+
+Summary* Engine::updateStopLimitSell(Order* order){
+    Order* limitSell = new Order(OrderType::LIMIT_SELL, order -> getOrderVolume(), order -> getPrice(), order -> getOrderVisibility());
+    return matchMarketSell(limitSell);
+}
+
+Summary* Engine::updateTrailingStopBuy(Order* order, float lastSale){
+    return NULL;
+}
+
+Summary* Engine::updateTrailingStopSell(Order* order, float lastSale){
+    return NULL;
+}
+
+void Engine::updateBook(Order* order, float lastSale, Summary* summary){
     while(!pendingBuyOrders.empty() || !pendingSellOrders.empty()){
-        Order* topBuy = pendingBuyOrders.top();
-        Order* topSell = pendingSellOrders.top();
+        if(!pendingBuyOrders.empty() && !pendingSellOrders.empty()){
+            Order* topBuy = pendingBuyOrders.top();
+            Order* topSell = pendingSellOrders.top();
+            // implement logic if both are possibilities
 
-        if(topBuy != NULL && topSell != NULL){
-             
-        }else if (topBuy){
-            if (topBuy -> getPrice() < 0)
+            //
+        }else if (!pendingBuyOrders.empty()){
+            Order* topBuy = pendingBuyOrders.top();
+            if (topBuy -> getStopPrice() >= lastSale){  
+                Summary* updateSummary = updateFunctions[topBuy -> orderTypeInt](topBuy, lastSale);
+                if (updateSummary != NULL){
+                    pendingBuyOrders.pop();
+                    summary -> addTriggered(updateSummary);
+                }
+            }else
                 break;
-            
         }else{
-             
+            Order* topSell = pendingSellOrders.top();
+            if (topSell -> getStopPrice() <= lastSale){  
+                Summary* updateSummary = updateFunctions[topSell -> orderTypeInt](topSell, lastSale);
+                if (updateSummary != NULL){
+                    pendingSellOrders.pop();
+                    summary -> addTriggered(updateSummary);
+                }
+            }else
+                break;   
         }
     }
 }
