@@ -1,0 +1,1 @@
+To build the Python libary, generate a `.so` file by running `make clean` then `make bind` in `cpp/`.
